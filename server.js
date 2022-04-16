@@ -13,8 +13,9 @@ const { ObjectId } = require('mongodb');
 // connect mongoose
 mongoose.connect(process.env.MONGO_URI,{ useNewUrlParser: true, useUnifiedTopology: true});
 
-// exercise schema
+// exercise schema & model
 const exerciseSchema = new mongoose.Schema({
+  user: ObjectId,
   description: {type: String, required: true},
   duration: {type: Number, required: true},
   tDate: {type: Date, default: Date.now}
@@ -28,10 +29,11 @@ exerciseSchema.virtual('date').get(function(){
 // ensure virtual is returned as part of JSON
 exerciseSchema.set('toJSON',{ virtuals: true });
 
+const Exercise = mongoose.model('Exercise',exerciseSchema);
+
 // user schema & model
 const userSchema = new mongoose.Schema({
   username: {type: String, required: true},
-  log: [exerciseSchema]
 });
 
 const Usr = mongoose.model('User',userSchema);
@@ -88,7 +90,10 @@ app.post('/api/users/:id/exercises',(req,res,next)=>{
   }
   
   // data to insert
-  const ex = { description: req.body.description, duration: req.body.duration};
+  const ex = new Exercise();
+  ex.user = req.params['id'];
+  ex.description = req.body.description;
+  ex.duration = req.body.duration;
   // date only needs to be set if it has been passed - otherwise Mongo will default it
   if (req.body.date) {
     ex.date = req.body.date;
@@ -102,9 +107,13 @@ app.post('/api/users/:id/exercises',(req,res,next)=>{
       return;
     }
     if (!!data) {
-      data.log.push(ex);
-      data.save().then(()=>{
-        res.json(data);
+      ex.user = req.params['id'];
+      ex.save().then(()=>{
+        const rtn = data.toJSON();
+        rtn.description = ex.description;
+        rtn.duration = ex.duration;
+        rtn.date = ex.date;
+        res.json(rtn);
       });
     }
     else {
@@ -116,10 +125,15 @@ app.post('/api/users/:id/exercises',(req,res,next)=>{
           return;
         }
         if (!!data) {
-          data.log.push(ex);
-          data.save().then(()=>{
-          res.json(data);
-      });
+          ex.user = data._id;
+          ex.save().then(()=>{
+            const rtn = data.toJSON();
+            rtn.description = ex.description;
+            rtn.duration = ex.duration;
+            rtn.date = ex.date;
+            console.log(rtn);
+            res.json(rtn);
+         });
         }
         else {
           res.status(404).send();
@@ -130,7 +144,7 @@ app.post('/api/users/:id/exercises',(req,res,next)=>{
 });
 
 // route: full log for user
-app.get('/api/users/:id/logs',(req,res)=>{
+app.get('/api/users/:id/logs',(req,res,next)=>{
   Usr.findOne( { _id: req.params['id'] },(err,data)=>{
     if (err && err.name != "CastError") {
       // if an error which isn't a cast error -- caused by submitting username not _id
@@ -138,8 +152,10 @@ app.get('/api/users/:id/logs',(req,res)=>{
       res.status(500).send();
       return;
     }
-    if (!!data && !!data.log) {
-      res.json(data.log);
+    if (!!data) {
+      res.locals.username = data.username;
+      res.locals.userid = data._id;
+      next();
     }
     else {
       // try to find the user by username instead
@@ -149,8 +165,10 @@ app.get('/api/users/:id/logs',(req,res)=>{
           res.status(500).send();
           return;
         }
-        if (!!data.log) {
-          res.json(data.log);
+        if (!!data) {
+          res.locals.username = data.username;
+          res.locals.userid = data._id;
+          next();
         }
         else {
           res.status(404).send();
@@ -158,7 +176,19 @@ app.get('/api/users/:id/logs',(req,res)=>{
       });
     }
   });
+},
+(req,res)=>{
+  const rtn = {_id: res.locals.userid, username: res.locals.username};
+  Exercise.find({user: rtn._id},(err,data)=>{
+    if (err) {
+      console.log(err);
+      res.status(500).send();
+    }
+    rtn.log = data;
+    res.json(rtn);
+  });
 });
+
 
 
 const listener = app.listen(process.env.PORT || 3000, () => {
