@@ -109,10 +109,12 @@ app.post('/api/users/:id/exercises',(req,res,next)=>{
     if (!!data) {
       ex.user = req.params['id'];
       ex.save().then(()=>{
-        const rtn = data.toJSON();
-        rtn.description = ex.description;
-        rtn.duration = ex.duration;
-        rtn.date = ex.date;
+        const rtn = {
+          _id: data._id,
+          description: ex.description,
+          duration: ex.duration,
+          date: ex.date
+        }
         res.json(rtn);
       });
     }
@@ -185,6 +187,7 @@ app.get('/api/users/:id/logs',(req,res,next)=>{
       res.status(500).send();
     }
     rtn.log = data;
+    rtn.count = data.length;
     res.json(rtn);
   });
 });
