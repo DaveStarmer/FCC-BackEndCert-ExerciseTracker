@@ -181,7 +181,16 @@ app.get('/api/users/:id/logs',(req,res,next)=>{
 },
 (req,res)=>{
   const rtn = {_id: res.locals.userid, username: res.locals.username};
-  Exercise.find({user: rtn._id},(err,data)=>{
+  const findObj = {user: rtn._id};
+  const rtnLimit = (typeof req.query.limit == 'undefined') ? null : parseInt(req.query.limit);
+  if (typeof req.query.from !='undefined') {
+    findObj.tDate = {$gte: new Date(req.query.from)}
+  }
+  if (typeof req.query.to !='undefined') {
+    if (typeof findObj.tDate == 'undefined') findObj.tDate={};
+    findObj.tDate.$lte = new Date(req.query.to);
+  }
+  const findEx = Exercise.find(findObj,(err,data)=>{
     if (err) {
       console.log(err);
       res.status(500).send();
@@ -189,7 +198,8 @@ app.get('/api/users/:id/logs',(req,res,next)=>{
     rtn.log = data;
     rtn.count = data.length;
     res.json(rtn);
-  });
+  }).sort({date:1}).limit(rtnLimit);
+  
 });
 
 
