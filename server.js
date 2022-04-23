@@ -115,6 +115,7 @@ app.post('/api/users/:id/exercises',(req,res,next)=>{
       ex.save().then(()=>{
         const rtn = {
           _id: data._id,
+          username: data.username,
           description: ex.description,
           duration: ex.duration,
           date: ex.date
