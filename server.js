@@ -94,9 +94,13 @@ app.post('/api/users/:id/exercises',(req,res,next)=>{
   ex.user = req.params['id'];
   ex.description = req.body.description;
   ex.duration = req.body.duration;
-  // date only needs to be set if it has been passed - otherwise Mongo will default it
+  // date if it has been passed, or today's date
   if (req.body.date) {
-    ex.date = req.body.date;
+    ex.tDate = new Date(req.body.date);
+  }
+  else {
+    const d = new Date();
+    d.setHours(0,0,0)
   }
 
   Usr.findOne( { _id: req.params['id'] },(err,data)=>{
